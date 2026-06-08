@@ -85,6 +85,8 @@ def get_auto_weather(location_name):
         res = requests.get(url, timeout=5)
         data = res.json()
 
+        st.write(data)
+        
         temp = data["current_weather"]["temperature"]
         code = data["current_weather"]["weathercode"]
 
