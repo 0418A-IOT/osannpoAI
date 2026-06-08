@@ -78,15 +78,15 @@ def get_auto_weather(location_name):
             "https://api.open-meteo.com/v1/forecast"
             f"?latitude={loc['lat']}"
             f"&longitude={loc['lon']}"
-            "&current=temperature_2m,weather_code"
+            "&current_weather=true"
             "&timezone=Asia%2FTokyo"
         )
 
         res = requests.get(url, timeout=5)
         data = res.json()
 
-        temp = data["current"]["temperature_2m"]
-        code = data["current"]["weather_code"]
+        temp = data["current_weather"]["temperature"]
+        code = data["current_weather"]["weathercode"]
 
         if code in [0, 1]:
             weather = "晴れ"
@@ -106,7 +106,6 @@ def get_auto_weather(location_name):
     except Exception as e:
         st.error(f"天気取得エラー: {e}")
         return "晴れ", None, "☀️", False
-
 
 def calc_aiot_score(steps, mood, fatigue, weather):
     score = 0
