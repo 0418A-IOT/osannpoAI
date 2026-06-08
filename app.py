@@ -181,7 +181,34 @@ def calc_streak(df):
             break
 
     return streak
+def get_achievements(df):
 
+    achievements = []
+
+    if len(df) >= 1:
+        achievements.append("🏅 初記録達成")
+
+    if len(df) >= 10:
+        achievements.append("📚 記録10回達成")
+
+    if len(df) >= 30:
+        achievements.append("👑 記録30回達成")
+
+    if not df.empty:
+
+        if df["steps"].max() >= 10000:
+            achievements.append("🚶 10000歩達成")
+
+        if df["steps"].max() >= 30000:
+            achievements.append("🚀 30000歩達成")
+
+        if df["score"].max() >= 7:
+            achievements.append("🧠 スコア7達成")
+
+        if df["score"].max() >= 9:
+            achievements.append("🌊 フローモード達成")
+
+    return achievements
 
 df = load_data()
 
@@ -197,6 +224,7 @@ score = calc_aiot_score(steps, mood, fatigue, auto_weather)
 state, comment, advice = judge_state(score)
 progress = score * 10
 streak = calc_streak(df)
+achievements = get_achievements(df)
 
 if not df.empty:
     week_ago = datetime.now() - timedelta(days=7)
@@ -241,6 +269,18 @@ st.markdown(f"""
     <span style="font-size:32px; font-weight:900;">{streak}日</span>
 </div>
 """, unsafe_allow_html=True)
+st.markdown("""
+<div class="card">
+<b>🏆 実績</b><br>
+""", unsafe_allow_html=True)
+
+if achievements:
+    for a in achievements:
+        st.write(a)
+else:
+    st.write("まだ実績がないよ")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="card">
