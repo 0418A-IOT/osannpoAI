@@ -73,7 +73,9 @@ st.markdown("""
 
 
 def get_auto_weather(location_name):
-    try:
+    try:except Exception as e:
+    st.error(f"天気取得エラー: {e}")
+    return "晴れ", None, "☀️", False
         loc = LOCATIONS[location_name]
         url = (
             "https://api.open-meteo.com/v1/forecast"
