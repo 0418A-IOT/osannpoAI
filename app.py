@@ -47,7 +47,7 @@ st.markdown("""
     background: linear-gradient(90deg, #34d399, #a78bfa);
 }
 .card {
-    padding: 18px 20px; border-radius: 20px;
+    padding: 20px 22px; border-radius: 22px;
     background: rgba(30, 41, 59, 0.72);
     border: 1px solid rgba(148, 163, 184, 0.18);
     margin-bottom: 16px;
@@ -68,8 +68,26 @@ st.markdown("""
 .summary-label { color: #cbd5e1; font-size: 15px; margin-bottom: 8px; }
 .summary-value { color: white; font-size: 34px; font-weight: 900; }
 .small-unit { font-size: 17px; color: #cbd5e1; }
+.achievement-list {
+    margin-top: 12px;
+    font-size: 18px;
+    line-height: 1.9;
+}
+.locked {
+    color: #64748b;
+}
+.level-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+.level-value {
+    font-size: 42px;
+    font-weight: 900;
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 def get_auto_weather(location_name):
     try:
@@ -84,7 +102,10 @@ def get_auto_weather(location_name):
 
         res = requests.get(url, timeout=5)
         data = res.json()
-        
+
+        if data.get("error"):
+            return "晴れ", None, "☀️", False
+
         temp = data["current_weather"]["temperature"]
         code = data["current_weather"]["weathercode"]
 
@@ -103,9 +124,9 @@ def get_auto_weather(location_name):
 
         return weather, temp, icon, True
 
-    except Exception as e:
-        st.error(f"天気取得エラー: {e}")
+    except Exception:
         return "晴れ", None, "☀️", False
+
 
 def calc_aiot_score(steps, mood, fatigue, weather):
     score = 0
@@ -158,6 +179,12 @@ def load_data():
         if len(df) > 0:
             df["datetime"] = pd.to_datetime(df["datetime"])
             df["date"] = df["datetime"].dt.date
+
+            if "location" not in df.columns:
+                df["location"] = "未設定"
+            if "temperature" not in df.columns:
+                df["temperature"] = None
+
         return df
     return pd.DataFrame()
 
@@ -179,34 +206,65 @@ def calc_streak(df):
             break
 
     return streak
-def get_achievements(df):
 
-    achievements = []
 
-    if len(df) >= 1:
-        achievements.append("🏅 初記録達成")
+def calc_level(df):
+    if df.empty:
+        exp = 0
+    else:
+        exp = int(len(df) * 10 + df["score"].sum() * 5 + df["steps"].sum() / 1000)
 
-    if len(df) >= 10:
-        achievements.append("📚 記録10回達成")
+    level = exp // 100 + 1
+    current_exp = exp % 100
+    next_exp = 100 - current_exp
+    title = get_level_title(level)
 
-    if len(df) >= 30:
-        achievements.append("👑 記録30回達成")
+    return level, exp, current_exp, next_exp, title
 
-    if not df.empty:
 
-        if df["steps"].max() >= 10000:
-            achievements.append("🚶 10000歩達成")
+def get_level_title(level):
+    if level >= 20:
+        return "🌊 フロー探索者"
+    elif level >= 15:
+        return "🔥 集中者"
+    elif level >= 10:
+        return "🌱 成長者"
+    elif level >= 5:
+        return "🚶 前進者"
+    else:
+        return "👁️ 観察者"
 
-        if df["steps"].max() >= 30000:
-            achievements.append("🚀 30000歩達成")
 
-        if df["score"].max() >= 7:
-            achievements.append("🧠 スコア7達成")
+def get_achievements(df, streak):
+    unlocked = []
+    locked = []
 
-        if df["score"].max() >= 9:
-            achievements.append("🌊 フローモード達成")
+    total_steps = int(df["steps"].sum()) if not df.empty else 0
+    max_steps = int(df["steps"].max()) if not df.empty else 0
+    max_score = int(df["score"].max()) if not df.empty else 0
+    record_count = len(df)
 
-    return achievements
+    checks = [
+        ("🏅 初記録達成", record_count >= 1),
+        ("📚 記録10回達成", record_count >= 10),
+        ("👑 記録30回達成", record_count >= 30),
+        ("🔥 3日連続記録", streak >= 3),
+        ("🔥 7日連続記録", streak >= 7),
+        ("🚶 10000歩達成", max_steps >= 10000),
+        ("🚀 30000歩達成", max_steps >= 30000),
+        ("🌍 累計100000歩", total_steps >= 100000),
+        ("🧠 スコア7達成", max_score >= 7),
+        ("🌊 スコア9達成", max_score >= 9),
+    ]
+
+    for name, ok in checks:
+        if ok:
+            unlocked.append(name)
+        else:
+            locked.append("🔒 " + name)
+
+    return unlocked, locked
+
 
 df = load_data()
 
@@ -222,7 +280,8 @@ score = calc_aiot_score(steps, mood, fatigue, auto_weather)
 state, comment, advice = judge_state(score)
 progress = score * 10
 streak = calc_streak(df)
-achievements = get_achievements(df)
+level, exp, current_exp, next_exp, level_title = calc_level(df)
+unlocked, locked = get_achievements(df, streak)
 
 if not df.empty:
     week_ago = datetime.now() - timedelta(days=7)
@@ -235,7 +294,7 @@ else:
 
 
 st.markdown('<div class="app-title">🚶 お散歩AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="app-caption">A-IOT 実験版 Ver.0.5</div>', unsafe_allow_html=True)
+st.markdown('<div class="app-caption">A-IOT 育成実験版 Ver.0.6</div>', unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="hero-card">
@@ -253,8 +312,20 @@ st.markdown(f'<div class="blue-card">{comment}</div>', unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="card">
+    <div class="level-title">🧬 A-IOTレベル</div>
+    <div class="level-value">Lv.{level}</div>
+    <div style="font-size:22px; font-weight:800;">{level_title}</div>
+    <div class="progress-bg">
+        <div class="progress-bar" style="width: {current_exp}%;"></div>
+    </div>
+    <p style="margin-top:10px; color:#cbd5e1;">経験値 {current_exp} / 100｜次のレベルまで {next_exp}</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="card">
     <b>📍 現在地設定</b><br>
-    <span style="font-size:24px; font-weight:900;">{location}</span><br>
+    <span style="font-size:28px; font-weight:900;">{location}</span><br>
     <span>{weather_icon} {auto_weather}</span>
     <span style="margin-left:10px;">{auto_temp if auto_temp is not None else "-"}℃</span><br>
     <span style="color:#94a3b8;">{"天気取得OK" if weather_ok else "天気取得失敗：晴れ扱い"}</span>
@@ -264,21 +335,28 @@ st.markdown(f"""
 st.markdown(f"""
 <div class="card">
     <b>🔥 連続記録</b><br>
-    <span style="font-size:32px; font-weight:900;">{streak}日</span>
+    <span style="font-size:36px; font-weight:900;">{streak}日</span>
 </div>
 """, unsafe_allow_html=True)
-st.markdown("""
+
+achievements_html = ""
+for a in unlocked:
+    achievements_html += f"<div>{a}</div>"
+
+for a in locked[:4]:
+    achievements_html += f"<div class='locked'>{a}</div>"
+
+if not achievements_html:
+    achievements_html = "<div>まだ実績がないよ</div>"
+
+st.markdown(f"""
 <div class="card">
-<b>🏆 実績</b><br>
+    <b>🏆 実績</b>
+    <div class="achievement-list">
+        {achievements_html}
+    </div>
+</div>
 """, unsafe_allow_html=True)
-
-if achievements:
-    for a in achievements:
-        st.write(a)
-else:
-    st.write("まだ実績がないよ")
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="card">
